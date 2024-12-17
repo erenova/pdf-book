@@ -16,7 +16,21 @@
       accept="application/pdf"
       class="mb-6 px-4 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
     />
-
+    <div class="flex gap-4 mb-4 mt-4 p-1">
+      <input
+        type="number"
+        id="go-to-page"
+        min="1"
+        placeholder="Page"
+        class="w-20 text-center px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+      />
+      <button
+        id="go-to-page-btn"
+        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+      >
+        Go
+      </button>
+    </div>
     <div class="flex items-center space-x-4 mb-6">
       <button
         id="prev-page"
@@ -31,32 +45,19 @@
       >
         Next Page
       </button>
-      <input
-        type="number"
-        id="go-to-page"
-        min="1"
-        placeholder="Page #"
-        class="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-      />
-      <button
-        id="go-to-page-btn"
-        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
-      >
-        Go
-      </button>
     </div>
 
-    <div id="viewer" class="flex flex-row w-full max-w-6xl space-x-6">
+    <div id="viewer" class="flex flex-row w-full max-w-6xl space-x-6 relative">
       <!-- PDF Page Container -->
       <div
         id="pdf-container"
-        class="w-1/2 border border-gray-300 shadow-md overflow-hidden"
+        class="w-1/2 border border-gray-300 shadow-md overflow"
       ></div>
 
       <!-- Transcript Container -->
       <div
         id="transcript-container"
-        class="w-1/2 border border-gray-300 shadow-md p-4 overflow-y-auto text-lg leading-relaxed"
+        class="w-1/2 border border-gray-300 shadow-md p-4 overflow-y-auto text-lg leading-relaxed px-2"
       ></div>
     </div>
 
@@ -140,9 +141,10 @@
         const textContent = await page.getTextContent();
         textContent.items.forEach((item) => {
           const textSpan = document.createElement("span");
-          textSpan.textContent = item.str + " ";
+          textSpan.textContent = " ";
+          textSpan.textContent += item.str + " ";
           textSpan.style.display = "inline-block";
-          textSpan.style.fontSize = `${item.transform[0] * 0.75}px`;
+          textSpan.style.fontSize = `16px`;
           transcriptContainer.appendChild(textSpan);
         });
       }
