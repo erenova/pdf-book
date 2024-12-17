@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Viewer with Selectable Text</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:," />
+  </head>
+  <body class="font-sans flex flex-col items-center p-4">
+    <h1 class="text-2xl font-bold my-6">PDF Booky</h1>
+
+    <input
+      type="file"
+      id="upload"
+      accept="application/pdf"
+      class="mb-6 px-4 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+    />
+
+    <div class="flex items-center space-x-4 mb-6">
+      <button
+        id="prev-page"
+        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+      >
+        Previous Page
+      </button>
+      <span id="page-info" class="text-lg font-semibold">Page 1 / 1</span>
+      <button
+        id="next-page"
+        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+      >
+        Next Page
+      </button>
+      <input
+        type="number"
+        id="go-to-page"
+        min="1"
+        placeholder="Page #"
+        class="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+      />
+      <button
+        id="go-to-page-btn"
+        class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+      >
+        Go
+      </button>
+    </div>
+
+    <div id="viewer" class="flex flex-row w-full max-w-6xl space-x-6">
+      <!-- PDF Page Container -->
+      <div
+        id="pdf-container"
+        class="w-1/2 border border-gray-300 shadow-md overflow-hidden"
+      ></div>
+
+      <!-- Transcript Container -->
+      <div
+        id="transcript-container"
+        class="w-1/2 border border-gray-300 shadow-md p-4 overflow-y-auto text-lg leading-relaxed"
+      ></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+    <script>
+      const pdfjsLib = window["pdfjs-dist/build/pdf"];
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.worker.min.js";
+
+      const pdfContainer = document.getElementById("pdf-container");
+      const transcriptContainer = document.getElementById(
+        "transcript-container",
+      );
+      const upload = document.getElementById("upload");
+      const prevPageBtn = document.getElementById("prev-page");
+      const nextPageBtn = document.getElementById("next-page");
+      const pageInfo = document.getElementById("page-info");
+      const goToPageInput = document.getElementById("go-to-page");
+      const goToPageBtn = document.getElementById("go-to-page-btn");
+
+      let pdf = null;
+      let currentPage = 1;
+
+      upload.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (file && file.type === "application/pdf") {
+          const fileURL = URL.createObjectURL(file);
+          pdf = await pdfjsLib.getDocument(fileURL).promise;
+          currentPage = 1;
+          renderPage(currentPage);
+        } else {
+          alert("Please upload a valid PDF file.");
+        }
+      });
+
+      prevPageBtn.addEventListener("click", () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderPage(currentPage);
+        }
+      });
+
+      nextPageBtn.addEventListener("click", () => {
+        if (pdf && currentPage < pdf.numPages) {
+          currentPage++;
+          renderPage(currentPage);
+        }
+      });
+
+      goToPageBtn.addEventListener("click", () => {
+        const pageNum = parseInt(goToPageInput.value, 10);
+        if (pdf && pageNum >= 1 && pageNum <= pdf.numPages) {
+          currentPage = pageNum;
+          renderPage(currentPage);
+        } else {
+          alert("Invalid page number.");
+        }
+      });
+
+      async function renderPage(pageNum) {
+        pdfContainer.innerHTML = "";
+        transcriptContainer.innerHTML = "";
+
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1 });
+
+        pageInfo.textContent = `Page ${pageNum} / ${pdf.numPages}`;
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+        }).promise;
+
+        pdfContainer.appendChild(canvas);
+
+        const textContent = await page.getTextContent();
+        textContent.items.forEach((item) => {
+          const textSpan = document.createElement("span");
+          textSpan.textContent = item.str + " ";
+          textSpan.style.display = "inline-block";
+          textSpan.style.fontSize = `${item.transform[0] * 0.75}px`;
+          transcriptContainer.appendChild(textSpan);
+        });
+      }
+    </script>
+  </body>
+</html>
