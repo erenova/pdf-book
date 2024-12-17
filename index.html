@@ -57,7 +57,7 @@
       <!-- Transcript Container -->
       <div
         id="transcript-container"
-        class="w-1/2 border border-gray-300 shadow-md p-4 overflow-y-auto text-lg leading-relaxed px-2"
+        class="w-1/2 border whitespace-normal border-gray-300 shadow-md p-4 overflow-y-auto text-md leading-relaxed p-3"
       ></div>
     </div>
 
@@ -143,8 +143,8 @@
           const textSpan = document.createElement("span");
           textSpan.textContent = " ";
           textSpan.textContent += item.str + " ";
-          textSpan.style.display = "inline-block";
-          textSpan.style.fontSize = `16px`;
+          textSpan.style.display = "";
+          textSpan.style.fontSize = ``;
           transcriptContainer.appendChild(textSpan);
         });
       }
