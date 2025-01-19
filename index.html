@@ -6,6 +6,77 @@
     <title>PDF Viewer with Selectable Text</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="data:," />
+    <style>
+      .slide-enter {
+        transform: translateX(100%);
+      }
+      .slide-enter-active {
+        transform: translateX(0%);
+        transition: transform 300ms ease-in-out;
+      }
+      .slide-exit {
+        transform: translateX(0%);
+      }
+      .slide-exit-active {
+        transform: translateX(-100%);
+        transition: transform 300ms ease-in-out;
+      }
+
+      #viewer.text-view #pdf-container {
+        display: none;
+      }
+      #viewer.pdf-view #transcript-container {
+        display: none;
+      }
+
+      @media (min-width: 768px) {
+        #viewer.text-view #pdf-container,
+        #viewer.pdf-view #transcript-container {
+          display: block;
+        }
+
+        .toggle-view-btn {
+          display: none;
+        }
+      }
+
+      /* PDF container için mobil optimizasyonları */
+      #pdf-container canvas {
+        width: 100% !important;
+        height: auto !important;
+      }
+
+      /* Mobil görünüm için container ayarları */
+      @media (max-width: 767px) {
+        #viewer {
+          min-height: 80vh;
+          width: 100vw !important;
+          padding: 0 0.5rem;
+        }
+
+        #pdf-container,
+        #transcript-container {
+          width: 100% !important;
+          min-height: 80vh;
+          margin: 0;
+        }
+
+        #pdf-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        #transcript-container {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          padding: 1rem;
+        }
+      }
+    </style>
   </head>
   <body class="font-sans flex flex-col items-center p-4">
     <h1 class="text-2xl font-bold my-6">PDF Booky</h1>
@@ -47,17 +118,27 @@
       </button>
     </div>
 
-    <div id="viewer" class="flex flex-row w-full max-w-6xl space-x-6 relative">
+    <button
+      id="toggle-view"
+      class="toggle-view-btn md:hidden mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+    >
+      Switch to Text View
+    </button>
+
+    <div
+      id="viewer"
+      class="pdf-view flex flex-col md:flex-row w-full max-w-6xl md:space-x-6 relative px-2 md:px-0"
+    >
       <!-- PDF Page Container -->
       <div
         id="pdf-container"
-        class="w-1/2 border border-gray-300 shadow-md overflow"
+        class="w-full md:w-1/2 border border-gray-300 shadow-md overflow-hidden bg-gray-50"
       ></div>
 
       <!-- Transcript Container -->
       <div
         id="transcript-container"
-        class="w-1/2 border whitespace-normal border-gray-300 shadow-md p-4 overflow-y-auto text-md leading-relaxed p-3"
+        class="w-full md:w-1/2 border border-gray-300 shadow-md p-4 overflow-y-auto text-md leading-relaxed bg-white rounded-lg"
       ></div>
     </div>
 
@@ -77,9 +158,12 @@
       const pageInfo = document.getElementById("page-info");
       const goToPageInput = document.getElementById("go-to-page");
       const goToPageBtn = document.getElementById("go-to-page-btn");
+      const toggleViewBtn = document.getElementById("toggle-view");
+      const viewer = document.getElementById("viewer");
 
       let pdf = null;
       let currentPage = 1;
+      let currentView = "pdf"; // "pdf" veya "text"
 
       upload.addEventListener("change", async (event) => {
         const file = event.target.files[0];
@@ -117,6 +201,42 @@
         }
       });
 
+      toggleViewBtn.addEventListener("click", () => {
+        const isPdfView = viewer.classList.contains("pdf-view");
+
+        if (isPdfView) {
+          viewer.classList.remove("pdf-view");
+          viewer.classList.add("text-view");
+          toggleViewBtn.textContent = "Switch to PDF View";
+          currentView = "text";
+        } else {
+          viewer.classList.remove("text-view");
+          viewer.classList.add("pdf-view");
+          toggleViewBtn.textContent = "Switch to Text View";
+          currentView = "pdf";
+        }
+
+        // Animasyon sınıflarını ekle
+        const enteringElement = isPdfView ? transcriptContainer : pdfContainer;
+        const exitingElement = isPdfView ? pdfContainer : transcriptContainer;
+
+        enteringElement.classList.add("slide-enter");
+        exitingElement.classList.add("slide-exit");
+
+        requestAnimationFrame(() => {
+          enteringElement.classList.add("slide-enter-active");
+          exitingElement.classList.add("slide-exit-active");
+
+          setTimeout(() => {
+            enteringElement.classList.remove(
+              "slide-enter",
+              "slide-enter-active",
+            );
+            exitingElement.classList.remove("slide-exit", "slide-exit-active");
+          }, 300);
+        });
+      });
+
       async function renderPage(pageNum) {
         pdfContainer.innerHTML = "";
         transcriptContainer.innerHTML = "";
@@ -128,25 +248,65 @@
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+
+        // Mobil görünüm için viewport scale hesaplama
+        const isMobile = window.innerWidth < 768;
+        const containerWidth = isMobile
+          ? window.innerWidth - 32
+          : pdfContainer.offsetWidth;
+        const scale = containerWidth / viewport.width;
+        const scaledViewport = page.getViewport({ scale });
+
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
 
         await page.render({
           canvasContext: context,
-          viewport: viewport,
+          viewport: scaledViewport,
         }).promise;
 
         pdfContainer.appendChild(canvas);
 
         const textContent = await page.getTextContent();
+        let prevFontSize = 0;
+
         textContent.items.forEach((item) => {
           const textSpan = document.createElement("span");
-          textSpan.textContent = " ";
-          textSpan.textContent += item.str + " ";
-          textSpan.style.display = "";
-          textSpan.style.fontSize = ``;
+          const fontSize = Math.ceil(item.transform[0]); // Font boyutunu al
+
+          // Başlık kontrolü
+          const isHeader = fontSize > prevFontSize + 2 || fontSize >= 16;
+
+          if (isHeader) {
+            // Başlık stilini uygula
+            textSpan.className =
+              "block font-bold text-xl mt-4 mb-2 text-gray-800";
+            if (fontSize >= 20) {
+              textSpan.className =
+                "block font-bold text-2xl mt-6 mb-3 text-gray-900";
+            }
+          } else {
+            // Normal metin stilini uygula
+            textSpan.className = "text-gray-700";
+          }
+
+          textSpan.textContent = item.str + " ";
+
+          // Paragraf sonunu kontrol et
+          if (item.str.trim().endsWith(".")) {
+            textSpan.className += " mr-3";
+          }
+
           transcriptContainer.appendChild(textSpan);
+          prevFontSize = fontSize;
         });
+
+        // Transcript container stillerini güncelle
+        transcriptContainer.className =
+          "w-1/2 border border-gray-300 shadow-md p-6 overflow-y-auto text-md leading-relaxed bg-white rounded-lg";
+
+        // Sayfa değişiminde mevcut görünümü koru
+        viewer.className = `flex flex-col md:flex-row w-full max-w-6xl md:space-x-6 relative ${currentView}-view`;
       }
     </script>
   </body>
